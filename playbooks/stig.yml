@@ -1,0 +1,8 @@
+- hosts: test
+  become: true
+  vars_files:
+    - ../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+  roles:
+    - { role: RedHatOfficial.rhel9_stig }
