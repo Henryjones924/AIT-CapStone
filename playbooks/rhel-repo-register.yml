@@ -1,5 +1,5 @@
 - name: RHEL REPO Registration Play
-  hosts: test
+  hosts: lab
   become: true
   vars_files:
     - ../vault/secrets.yml

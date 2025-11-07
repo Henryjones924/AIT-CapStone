@@ -1,5 +1,5 @@
 - name: Install OSCAP for compliance scanning
-  hosts: test
+  hosts: lab
   become: true
   vars_files:
     - ../vault/secrets.yml

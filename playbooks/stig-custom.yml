@@ -1,0 +1,92 @@
+- name: STIG Apply Custom
+  hosts: lab
+  become: true
+  vars_files:
+    - ../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Configure AIDE to Use FIPS 140-2 for Validating Hashes
+      ansible.builtin.blockinfile:
+        path: /etc/aide.conf
+        marker: "# {mark} ANSIBLE MANAGED FIPS BLOCK"
+        block: |
+          NORMAL = sha512
+        backup: yes
+
+    - name: Configure System Cryptography Policy
+      command: update-crypto-policies --set FIPS
+
+    - name: Set number of Password Hashing Rounds - password-auth
+      ansible.builtin.replace:
+        path: /etc/pam.d/password-auth
+        regexp: '^(password\s+sufficient\s+pam_unix\.so.*rounds=)\d+'
+        replace: '\g<1>100000'
+        backup: yes
+
+    - name: Set number of Password Hashing Rounds - system-auth
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/system-auth
+        regexp: '^auth\s+sufficient\s+pam_unix\.so'
+        line: "auth        sufficient       pam_unix.so sha512 shadow rounds=100000"
+        backup: yes
+
+    - name: Ensure the Default Bash Umask is Set Correctly
+      ansible.builtin.blockinfile:
+        path: /etc/bashrc
+        marker: "# {mark} ANSIBLE MANAGED Umask"
+        block: |
+          umask 077
+        backup: yes
+    - name: Add nosuid Option to /boot/efi
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^(.*\/boot\/efi.*nodev)(?!.*,nosuid)(.*)$'
+        replace: '\1,nosuid\2'
+        backup: yes
+    - name: Add nosuid Option to /boot/
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^(.*\/boot\s+xfs.*nodev)(?!.*,nosuid)(.*)$'
+        replace: '\1,nosuid\2'
+        backup: yes
+    - name: add nosuid and noexec Option for /home
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^(.*\/home\s+xfs.*nodev)(?!.*,nosuid)(.*)$'
+        replace: '\1,nosuid,noexec\2'
+        backup: yes
+    - name: Update Log USBGuard daemon audit events using Linux Audit
+      ansible.builtin.replace:
+        path: /etc/usbguard/usbguard-daemon.conf
+        regexp: "^(AuditBackend=).*"
+        replace: '\1LinuxAudit'
+        backup: yes
+
+    - name: Ensure auditd Collects Changes to Cron Jobs
+      ansible.builtin.blockinfile:
+        path: /etc/audit/rules.d/cron.rules
+        marker: "# {mark} ANSIBLE Custom Rules"
+        block: |
+          -w /etc/cron.d/ -p wa -k cronjobs
+          -w /var/spool/cron -p wa -k cronjobs
+        create: yes
+        backup: yes
+    - name: Set number of records to cause an explicit flush to audit logs
+      ansible.builtin.lineinfile:
+        path: /etc/audit/auditd.conf
+        regexp: "^freq ="
+        line: "freq = 100"
+        backup: yes
+
+    - name: Initialize AIDE
+      command: aide --init
+      args:
+        creates: /var/lib/aide/aide.db.gz
+
+    - name: Replace default database
+      copy:
+        src: /var/lib/aide/aide.db.new.gz
+        dest: /var/lib/aide/aide.db.gz
+        remote_src: yes
