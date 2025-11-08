@@ -1,0 +1,173 @@
+volumes:
+  portainer_data:
+  prometheus:
+  prometheus-data:
+  node-exporter:
+  grafana-storage:
+  loki-data:
+  promtail-data:
+  dockercomposeservices_proxy-logs:
+    external: true
+  influxdb2-data:
+  influxdb2-config:
+
+#-----Portainer------------------------------------
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    ports:
+      - "8000:8000"
+      - "9443:9443"
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
+    networks:
+      - net-portainer
+    userns_mode: host
+    read_only: true
+  #---------------------------------------------
+  #----Grafana Stack-------------------------------------------
+  #Start of Prometheus
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    restart:
+      unless-stopped
+      #ports:
+      #- '9090:9090'
+    volumes:
+      - prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+      - "--storage.tsdb.retention.time=30d"
+        #- '--add-host=host.docker.internal=host-gateway'
+        #- '--web.listen-address=127.0.0.1:9090'
+        #- '--web.external-url=https://prometheus.hjhomelab.com/'
+        #- '--web.route-prefix="/"'
+    networks:
+      - net-prom
+      - net-grafana_source
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    read_only: true
+
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    command:
+      - "--path.rootfs=/host"
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - /:/host:ro,rslave
+    userns_mode: host
+    read_only: true
+
+  grafana:
+    image: grafana/grafana-enterprise:latest
+    container_name: grafana
+    restart:
+      unless-stopped
+      # ports:
+      #- '3000:3000'
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    environment:
+      - GF_SERVER_ROOT_URL=https://grafana.hjhomelab.com/
+        # - GF_INSTALL_PLUGINS=grafana-clock-panel
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+        - name: Loki
+          type: loki
+          access: proxy
+          orgId: 1
+          url: http://loki:3100
+          basicAuth: false
+          isDefault: true
+          version: 1
+          editable: false
+        EOF
+        /run.sh
+    networks:
+      - net-grafana
+      - net-grafana_source
+    security_opt:
+      - no-new-privileges:true
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    devices:
+      - /dev/kmsg
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /mnt/data/docker/data/:/mnt/data/docker/data/:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - net-prom
+    restart: unless-stopped
+    userns_mode: host
+    read_only: true
+
+  loki:
+    image: grafana/loki:latest
+    container_name:
+      loki
+      #ports:
+      #- "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/etc/loki/
+    networks:
+      - net-loki
+      - net-grafana_source
+    restart:
+      unless-stopped
+      #read_only: true
+
+  promtail:
+    container_name: promtail
+    image: grafana/promtail:latest
+    volumes:
+      - /var/log:/var/log:ro
+      - dockercomposeservices_proxy-logs:/proxy:ro
+      - promtail-data:/etc/promtail/:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - net-loki
+    restart: unless-stopped
+    userns_mode:
+      host
+      #read_only: true
+
+#--------------------------------------------
+networks:
+  net-grafana_source:
+    name: net-grafana_source
+  net-prom:
+    name: net-prom
+  net-loki:
+    name: net-loki
+  net-grafana:
+    name: net-grafana
+    external: true
+  net-portainer:
+    name: net-portainer
+    external: true

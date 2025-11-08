@@ -1,0 +1,213 @@
+volumes:
+  nextcloud-data:
+  nextcloud-db:
+  proxy-data:
+  proxy-letsencrypt:
+  proxy-db:
+  proxy-logs:
+  proxy-nginx:
+  pihole-pi:
+  pihole-dnsmasq:
+  watchtower:
+  wiregaurd-config:
+  vaultwarden:
+
+services:
+  #VaultWarden Start ---------------------------
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name:
+      vaultwarden
+      #ports:
+      # - '80:80'
+    volumes:
+      - vaultwarden:/data/
+    environment:
+      - WEBSOCKET_ENABLED=true
+      - TZ=America/New_York
+      - DOMAIN=https://vault.hjhomelab.com
+        #- ADMIN_TOKEN=fsadufhs22%@!1@34
+      - SIGNUPS_ALLOWED=false
+      - LOG_LEVEL=warn
+      - LOG_FILE=/data/vaultwarden.log
+    restart: unless-stopped
+    networks:
+      - no-internet
+    security_opt:
+      - no-new-privileges:true
+
+  #------------------------ ---------------------------
+  #Start WireGaurd ------------------------------------
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - SERVERPORT=51820
+      - PEERS=6
+      - PEERDNS=auto
+      - INTERNAL_SUBNET=10.13.13.0
+      - SERVERURL=vpn.hjhomelab.com
+      - LOG_CONFS=true
+      - ALLOWEDIPS=192.168.6.0/24
+    ports:
+      - 51820:51820/udp
+    volumes:
+      - wiregaurd-config:/config
+      - /lib/modules:/lib/modules
+    sysctls:
+      net.ipv4.conf.all.src_valid_mark: 1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      wireguard:
+        ipv4_address: 172.24.0.2
+    dns:
+      - 192.168.6.2
+
+  #End WireGaurd ---------------------------------------
+  #Start PiHole ----------------------------------------
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - "192.168.6.2:53:53/tcp"
+      - "192.168.6.2:53:53/udp"
+    environment:
+      TZ: "America/Chicago"
+      FTLCONF_dns_listeningMode: "all"
+    volumes:
+      - "pihole-pi:/etc/pihole"
+      - "pihole-dnsmasq:/etc/dnsmasq.d"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    userns_mode: host
+    networks:
+      - net-pihole
+    dns:
+      - 192.168.6.2
+
+  #Start NextCloud
+  db:
+    image: mariadb:latest
+    container_name: nextcloud-mariadb
+    restart: always
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    volumes:
+      - nextcloud-db:/var/lib/mysql
+    environment:
+      - MARIADB_AUTO_UPGRADE=1
+      - MARIADB_DISABLE_UPGRADE_BACKUP=1
+      - MYSQL_ROOT_PASSWORD=PASSWORD!@#$
+      - MYSQL_PASSWORD=PASSWORD!@#$
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - net-nextcloud
+
+  nextcloud:
+    image: nextcloud:latest
+    container_name: nextcloud
+    restart: always
+    links:
+      - db
+    volumes:
+      - nextcloud-data:/var/www/html
+    environment:
+      - MYSQL_PASSWORD=PASSWORD!@#$
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_HOST=db
+      - NEXTCLOUD_TRUSTED_DOMAINS=cloud3.hjhomelab.com cloud.hjhomelab.com
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - net-public
+      - net-nextcloud
+  #End NextCloud
+  #Proxy Manager
+  proxy:
+    image: "jc21/nginx-proxy-manager:latest"
+    restart: unless-stopped
+    container_name: Proxy
+    ports:
+      - "443:443"
+        # - '81:81'
+    volumes:
+      - proxy-data:/data
+      - proxy-logs:/data/logs
+      - proxy-letsencrypt:/etc/letsencrypt
+      - proxy-nginx:/etc/nginx/conf.d/include
+    networks:
+      - no-internet
+      - net-nextcloud
+      - net-pihole
+      - net-grafana
+      - net-portainer
+    security_opt:
+      - no-new-privileges:true
+  #End Proxy
+  #Tunnel
+  tunnel:
+    container_name: Cloudflare-Tunnel
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN= TBD #####################
+    networks:
+      - net-public
+    security_opt:
+      - no-new-privileges:true
+  #End Tunnel
+  #Start WatchTower
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+        #   - watchtower:/config.json
+    command: --run-once
+    environment:
+      - WATCHTOWER_CLEANUP=true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    userns_mode: host
+    read_only: true
+
+networks:
+  wireguard:
+    name: wgnet
+    external: true
+    ipam:
+      config:
+        - subnet: 172.24.0.0/24
+          gateway: 172.24.0.1
+  no-internet:
+    driver: bridge
+    internal: true
+  net-public:
+    driver: bridge
+    name: net-public
+  net-nextcloud:
+    driver: bridge
+    name: net-nextcloud
+  net-pihole:
+    name: net-pihole
+    driver: bridge
+  net-grafana:
+    name: net-grafana
+  net-portainer:
+    name: net-portainer

@@ -1,9 +1,0 @@
-- name: Install and Prep Docker
-  hosts: lab
-  become: true
-  vars_files:
-    - ../vault/secrets.yml
-  vars:
-    ansible_become_password: "{{ sudo_password }}"
-
-  tasks:
