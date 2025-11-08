@@ -12,7 +12,8 @@
         path: /etc/aide.conf
         marker: "# {mark} ANSIBLE MANAGED FIPS BLOCK"
         block: |
-          NORMAL = sha512
+          FIPSR = p+i+n+u+g+s+m+c+acl+selinux+xattrs+sha256
+          NORMAL = FIPSR+sha512
         backup: yes
 
     - name: Configure System Cryptography Policy
@@ -63,6 +64,12 @@
         regexp: "^(AuditBackend=).*"
         replace: '\1LinuxAudit'
         backup: yes
+    - name: Configure Logind to terminate idle sessions after certain time of inactivity
+      ansible.builtin.replace:
+        path: /etc/systemd/logind.conf
+        regexp: "^(StopIdleSessionSec =).*"
+        replace: "/1 900"
+        backup: yes
 
     - name: Ensure auditd Collects Changes to Cron Jobs
       ansible.builtin.blockinfile:
@@ -90,3 +97,7 @@
         src: /var/lib/aide/aide.db.new.gz
         dest: /var/lib/aide/aide.db.gz
         remote_src: yes
+
+    - name: Reboot target machine
+      ansible.builtin.reboot:
+      reboot_timeout: 600
