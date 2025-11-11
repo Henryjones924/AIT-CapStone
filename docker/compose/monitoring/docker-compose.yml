@@ -8,8 +8,6 @@ volumes:
   promtail-data:
   dockercomposeservices_proxy-logs:
     external: true
-  influxdb2-data:
-  influxdb2-config:
 
 #-----Portainer------------------------------------
 services:
@@ -118,7 +116,7 @@ services:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
-      - /mnt/data/docker/data/:/mnt/data/docker/data/:ro
+      #- /mnt/data/docker/data/:/mnt/data/docker/data/:ro
       - /dev/disk/:/dev/disk:ro
     networks:
       - net-prom
@@ -147,7 +145,7 @@ services:
     image: grafana/promtail:latest
     volumes:
       - /var/log:/var/log:ro
-      - dockercomposeservices_proxy-logs:/proxy:ro
+      #- dockercomposeservices_proxy-logs:/proxy:ro
       - promtail-data:/etc/promtail/:ro
     command: -config.file=/etc/promtail/config.yml
     networks:
