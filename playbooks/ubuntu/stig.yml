@@ -1,0 +1,503 @@
+- name: STIG Ubuntu 24
+  hosts: node
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Ubuntu 24.04 LTS must not have the "systemd-timesyncd" package installed.
+      ansible.builtin.apt:
+        name: systemd-timesyncd
+        state: absent
+    - name: Ubuntu 24.04 LTS must use a file integrity tool to verify correct operation of all security functions.
+      ansible.builtin.apt:
+        name: aide
+        state: present
+    - name: Ubuntu 24.04 LTS must have the "auditd" package installed.
+      ansible.builtin.apt:
+        name: auditd
+        state: present
+    - name: Ubuntu 24.04 LTS must have the "libpam-pwquality" package installed.
+      ansible.builtin.apt:
+        name: libpam-pwquality
+        state: present
+    - name: Ubuntu 24.04 LTS must have the "SSSD" package installed.
+      ansible.builtin.apt:
+        name: sssd
+        state: present
+    - name: Ubuntu 24.04 LTS must have the "chrony" package installed.
+      ansible.builtin.apt:
+        name: chrony
+        state: present
+    - name: Ubuntu 24.04 LTS must use SSH to protect the confidentiality and integrity of transmitted information.
+      ansible.builtin.service:
+        name: ssh
+        enabled: yes
+    - name: Create /etc/ssh/sshd_config.d/stig.conf file
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        state: touch
+        mode: "0600"
+        owner: root
+        group: root
+
+    - name: Ensure SSH daemon only uses FIPS-approved ciphers
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        line: "Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes128-ctr"
+        state: present
+        create: yes
+        validate: "sshd -t -f %s"
+
+    - name: Ensure SSH daemon only uses FIPS-approved MACs
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        line: "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256"
+        state: present
+        create: yes
+        validate: "sshd -t -f %s"
+
+    - name: Ensure SSH daemon only uses FIPS-approved KexAlgorithms
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        line: "KexAlgorithms ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group14-sha256"
+        state: present
+        create: yes
+        validate: "sshd -t -f %s"
+
+    - name: Restart SSH service to apply new ciphers
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted
+        daemon_reload: yes
+    - name: Ubuntu 24.04 LTS must allow users to directly initiate a session lock for all connection types.
+      ansible.builtin.apt:
+        name: vlock
+        state: present
+
+    - name: Ensure GRUB_CMDLINE_LINUX includes audit=1
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX="(.*)"'
+        line: 'GRUB_CMDLINE_LINUX="\1 audit=1"'
+        backrefs: yes
+        backup: yes
+
+    - name: Update GRUB configuration
+      ansible.builtin.command:
+        cmd: update-grub
+
+    - name: Ensure maxlogins limit is configured
+      ansible.builtin.copy:
+        dest: /etc/security/limits.d/99-maxlogins.conf
+        content: "* hard maxlogins 10\n"
+        owner: root
+        group: root
+        mode: "0644"
+    - name: Ensure /etc/profile.d/99-terminal_tmout.sh exists with TMOUT=600
+      ansible.builtin.lineinfile:
+        path: /etc/profile.d/99-terminal_tmout.sh
+        line: "TMOUT=600"
+        create: yes
+        state: present
+        regexp: "^TMOUT="
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Ensure usb-storage cannot be loaded (install /bin/true)
+      lineinfile:
+        path: /etc/modprobe.d/DISASTIG.conf
+        line: "install usb-storage /bin/true"
+        create: yes
+        state: present
+
+    - name: Ensure usb-storage is blacklisted
+      lineinfile:
+        path: /etc/modprobe.d/DISASTIG.conf
+        line: "blacklist usb-storage"
+        create: yes
+        state: present
+
+    - name: Reload module blacklist (optional, prevents future use until reboot)
+      command: "modprobe -r usb-storage"
+      ignore_errors: yes
+
+    - name: Ubuntu 24.04 LTS must prevent direct login to the root account.
+      command: "passwd -l root"
+      ignore_errors: yes
+
+    - name: Update /etc/pam.d/common-password for sha512 hashing
+      lineinfile:
+        path: /etc/pam.d/common-password
+        regexp: '^password\s+\[success=.*\]\s+pam_unix\.so'
+        line: "password [success=1 default=ignore] pam_unix.so obscure sha512 shadow rounds=100000"
+        backrefs: yes
+
+    - name: Set dcredit=-1 in /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*dcredit\s*='
+        line: "dcredit=-1"
+        create: yes
+        state: present
+
+    - name: Set difok=8 in /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*difok\s*='
+        line: "difok=8"
+        create: yes
+        state: present
+
+    - name: Set lcredit=-1 in /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*lcredit\s*='
+        line: "lcredit=-1"
+        create: yes
+        state: present
+    - name: Set ucredit=-1 in /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*ucredit\s*='
+        line: "ucredit=-1"
+        create: yes
+        state: present
+    - name: Set minlen=15 in /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*minlen\s*='
+        line: "minlen=15"
+        create: yes
+        state: present
+
+    - name: Set PASS_MAX_DAYS=60 in /etc/login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^\s*PASS_MAX_DAYS\s+'
+        line: "PASS_MAX_DAYS   60"
+        backrefs: yes
+    - name: Ensure enforcing = 1 in /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*enforcing\s*='
+        line: "enforcing = 1"
+        create: yes
+        state: present
+
+    - name: Set dictcheck=1 in /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*#?\s*dictcheck\s*='
+        line: "dictcheck=1"
+        create: yes
+        state: present
+
+    - name: Disable ctrl-alt-del.target
+      systemd:
+        name: ctrl-alt-del.target
+        enabled: no
+        state: stopped
+
+    - name: Mask ctrl-alt-del.target
+      systemd:
+        name: ctrl-alt-del.target
+        masked: yes
+
+    - name: Reload systemd daemon
+      command: systemctl daemon-reexec
+      become: yes
+
+    - name: Ensure 'nullok' is not present in /etc/pam.d/common-auth
+      replace:
+        path: /etc/pam.d/common-auth
+        regexp: '\s*nullok'
+        replace: ""
+
+    - name: Set pam_lastlog.so to required with showfailed in /etc/pam.d/login
+      lineinfile:
+        path: /etc/pam.d/login
+        regexp: '^session\s+.*pam_lastlog\.so'
+        line: "session required pam_lastlog.so showfailed"
+        insertafter: BOF
+        state: present
+
+    - name: Comment out default auth logging
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        regexp: '^auth,authpriv\.\*'
+        state: absent
+        backup: yes
+
+    - name: Add auth logging to /var/log/secure
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        line: "auth.*,authpriv.* /var/log/secure"
+        state: present
+        create: yes
+        insertafter: EOF
+
+    - name: Add audit rule for user/group changes on /etc/passwd
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-w /etc/passwd -p wa -k usergroup_modification"
+        state: present
+        create: yes
+        regexp: "^-w /etc/passwd -p wa -k usergroup_modification"
+
+    - name: Add audit rule for user/group changes on /etc/group
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-w /etc/group -p wa -k usergroup_modification"
+        state: present
+        create: yes
+        regexp: "^-w /etc/group -p wa -k usergroup_modification"
+
+    - name: Add audit rule for user/group changes on /etc/shadow
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-w /etc/shadow -p wa -k usergroup_modification"
+        state: present
+        create: yes
+        regexp: "^-w /etc/shadow -p wa -k usergroup_modification"
+
+    - name: Add audit rule for user/group changes on /etc/gshadow
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-w /etc/gshadow -p wa -k usergroup_modification"
+        state: present
+        create: yes
+        regexp: "^-w /etc/gshadow -p wa -k usergroup_modification"
+
+    - name: Add audit rule for user/group password changes on /etc/security/opasswd
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-w /etc/security/opasswd -p wa -k usergroup_modification"
+        state: present
+        create: yes
+        regexp: "^-w /etc/security/opasswd -p wa -k usergroup_modification"
+
+    - name: Add audit rule for 64-bit UID execve
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -F key=execpriv"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -F key=execpriv"
+
+    - name: Add audit rule for 64-bit GID execve
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b64 -S execve -C gid!=egid -F egid=0 -F key=execpriv"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b64 -S execve -C gid!=egid -F egid=0 -F key=execpriv"
+
+    - name: Add audit rule for 32-bit UID execve
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b32 -S execve -C uid!=euid -F euid=0 -F key=execpriv"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b32 -S execve -C uid!=euid -F euid=0 -F key=execpriv"
+
+    - name: Add audit rule for 32-bit GID execve
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b32 -S execve -C gid!=egid -F egid=0 -F key=execpriv"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b32 -S execve -C gid!=egid -F egid=0 -F key=execpriv"
+    - name: Add audit rule for 64-bit deletion syscalls
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b64 -S unlink,unlinkat,rename,renameat,rmdir -F auid>=1000 -F auid!=-1 -k delete"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b64 -S unlink,unlinkat,rename,renameat,rmdir"
+
+    - name: Add audit rule for 32-bit deletion syscalls
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b32 -S unlink,unlinkat,rename,renameat,rmdir -F auid>=1000 -F auid!=-1 -k delete"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b32 -S unlink,unlinkat,rename,renameat,rmdir"
+
+    - name: Add audit rule for /etc/sudoers.d modifications
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-w /etc/sudoers.d -p wa -k privilege_modification"
+        state: present
+        create: yes
+        regexp: "^-w /etc/sudoers.d -p wa -k privilege_modification"
+
+    - name: Add audit rule for /etc/sudoers modifications
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-w /etc/sudoers -p wa -k privilege_modification"
+        state: present
+        create: yes
+        regexp: "^-w /etc/sudoers -p wa -k privilege_modification"
+
+    - name: Add audit rule for 32-bit module syscalls
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b32 -S init_module,finit_module -F auid>=1000 -F auid!=-1 -k module_chng"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b32 -S init_module,finit_module"
+
+    - name: Add audit rule for 64-bit module syscalls
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b64 -S init_module,finit_module -F auid>=1000 -F auid!=-1 -k module_chng"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b64 -S init_module,finit_module"
+    - name: Add audit rule for usermod execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-usermod"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/sbin/usermod"
+
+    - name: Add audit rule for crontab execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/bin/crontab -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-crontab"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/bin/crontab"
+
+    - name: Add audit rule for pam_timestamp_check execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/sbin/pam_timestamp_check -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-pam_timestamp_check"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/sbin/pam_timestamp_check"
+
+    - name: Add audit rule for chage execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/bin/chage -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-chage"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/bin/chage"
+    - name: Add audit rule for 32-bit ownership-changing syscalls
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -k perm_chng"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown"
+
+    - name: Add audit rule for 64-bit ownership-changing syscalls
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -k perm_chng"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown"
+    - name: Add audit rule for 32-bit permission-changing syscalls
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -k perm_chng"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b32 -S chmod,fchmod,fchmodat"
+
+    - name: Add audit rule for 64-bit permission-changing syscalls
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -k perm_chng"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat"
+
+    - name: Add 32-bit audit rule for -EPERM
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b32 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=-1 -k perm_access"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b32 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EPERM"
+
+    - name: Add 32-bit audit rule for -EACCES
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b32 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=-1 -k perm_access"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b32 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EACCES"
+
+    - name: Add 64-bit audit rule for -EPERM
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b64 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=-1 -k perm_access"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b64 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EPERM"
+
+    - name: Add 64-bit audit rule for -EACCES
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F arch=b64 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=-1 -k perm_access"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F arch=b64 -S creat,open,openat,open_by_handle_at,truncate,ftruncate -F exit=-EACCES"
+    - name: Add audit rule for sudo execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -k priv_cmd"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/bin/sudo"
+
+    - name: Add audit rule for sudoedit execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/bin/sudoedit -F perm=x -F auid>=1000 -F auid!=-1 -k priv_cmd"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/bin/sudoedit"
+    - name: Add audit rule for chsh execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/bin/chsh -F perm=x -F auid>=1000 -F auid!=-1 -k priv_cmd"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/bin/chsh"
+
+    - name: Add audit rule for newgrp execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/bin/newgrp -F perm=x -F auid>=1000 -F auid!=-1 -k priv_cmd"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/bin/newgrp"
+
+    - name: Add audit rule for chcon execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=-1 -k perm_chng"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/usr/bin/chcon"
+
+    - name: Add audit rule for apparmor_parser execution
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-a always,exit -F path=/sbin/apparmor_parser -F perm=x -F auid>=1000 -F auid!=-1 -k perm_chng"
+        state: present
+        create: yes
+        regexp: "^-a always,exit -F path=/sbin/apparmor_parser"
+
+    - name: Reload audit rules
+      ansible.builtin.command:
+        cmd: augenrules --load
