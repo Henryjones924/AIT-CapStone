@@ -27,6 +27,12 @@
       ansible.builtin.apt:
         name: sssd
         state: present
+
+    - name: Ubuntu 24.04 LTS must use SSH to protect the confidentiality and integrity of transmitted information.
+      ansible.builtin.service:
+        name: ssh
+        state: started
+
     - name: Ubuntu 24.04 LTS must have the "chrony" package installed.
       ansible.builtin.apt:
         name: chrony
@@ -457,7 +463,7 @@
         line: "-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -k priv_cmd"
         state: present
         create: yes
-        regexp: "^-a always,exit -F path=/usr/bin/sudo"
+        regexp: "^-a always,exit\\s+-F path=/usr/bin/sudo\\b"
 
     - name: Add audit rule for sudoedit execution
       ansible.builtin.lineinfile:
@@ -466,6 +472,7 @@
         state: present
         create: yes
         regexp: "^-a always,exit -F path=/usr/bin/sudoedit"
+
     - name: Add audit rule for chsh execution
       ansible.builtin.lineinfile:
         path: /etc/audit/rules.d/stig.rules
@@ -497,7 +504,72 @@
         state: present
         create: yes
         regexp: "^-a always,exit -F path=/sbin/apparmor_parser"
+    - name: Ensure SSH FIPS and X11 settings in stig.conf
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        line: "X11UseLocalhost yes"
+        state: present
+        create: yes
+        validate: "sshd -t -f %s"
+
+    - name: Ensure pam_faildelay is set to 4 seconds in common-auth
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/common-auth
+        regexp: '^auth\s+required\s+pam_faildelay\.so'
+        line: "auth required pam_faildelay.so delay=4000000"
+        insertafter: BOF
+        state: present
+        backup: yes
+
+    - name: Ensure audit rule for /var/log/journal exists
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        line: "-w /var/log/journal -p wa -k systemd_journal"
+        state: present
+        create: yes
+
+    - name: Ensure SSH does not allow empty passwords
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        line: "PermitEmptyPasswords no"
+        state: present
+        create: yes
+
+    - name: Ensure SSH does not allow user environment
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        line: "PermitUserEnvironment no"
+        state: present
+        create: yes
+    - name: Ensure password complexity requires at least one special character
+      ansible.builtin.lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^[#\s]*ocredit'
+        line: "ocredit=-1"
+        state: present
+        create: yes
+
+    - name: Ensure auditing of nonlocal maintenance and diagnostic sessions
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: '^-w /var/log/sudo\.log'
+        line: "-w /var/log/sudo.log -p wa -k maintenance"
+        state: present
+        create: yes
+
+    - name: Set SSH idle timeout to 10 minutes
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        regexp: "^ClientAliveInterval"
+        line: "ClientAliveInterval 600"
+        state: present
+        create: yes
 
     - name: Reload audit rules
       ansible.builtin.command:
         cmd: augenrules --load
+
+    - name: Restart SSHD
+      ansible.builtin.service:
+        name: sshd
+        state: restarted
