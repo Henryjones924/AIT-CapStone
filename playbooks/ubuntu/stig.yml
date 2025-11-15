@@ -51,19 +51,19 @@
 
     - name: Ensure SSH daemon only uses FIPS-approved ciphers
       ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config.d/stig.conf
+        path: /etc/ssh/sshd_config
+        regexp: "^Ciphers"
         line: "Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes128-ctr"
         state: present
         create: yes
         validate: "sshd -t -f %s"
 
-    - name: Ensure SSH daemon only uses FIPS-approved MACs
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config.d/stig.conf
+    - name: Set approved MACs in sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^MACs"
         line: "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256"
         state: present
-        create: yes
-        validate: "sshd -t -f %s"
 
     - name: Ensure SSH daemon only uses FIPS-approved KexAlgorithms
       ansible.builtin.lineinfile:
@@ -116,7 +116,7 @@
     - name: Ensure usb-storage cannot be loaded (install /bin/true)
       lineinfile:
         path: /etc/modprobe.d/DISASTIG.conf
-        line: "install usb-storage /bin/true"
+        line: "install usb-storage /bin/false"
         create: yes
         state: present
 

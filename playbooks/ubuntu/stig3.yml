@@ -1,0 +1,145 @@
+- name: STIG 2 Ubuntu 24
+  hosts: node
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+  tasks:
+    - name: Ensure minimum password lifetime is 1 day
+      lineinfile:
+        path: /etc/login.defs
+        regexp: "^PASS_MIN_DAYS"
+        line: "PASS_MIN_DAYS 1"
+        state: present
+        backrefs: yes
+
+    - name: create SSSD configuration file
+      blockinfile:
+        path: /etc/sssd/sssd.conf
+        marker: "# {mark} ANSIBLE MANAGED"
+        block: |
+          [sssd]
+          services = nss, pam
+          domains = LOCAL
+          config_file_version = 2
+
+
+          [domain/LOCAL]
+          id_provider = local
+          cache_credentials = True
+
+          [pam]
+          offline_credentials_expiration = 1
+        create: yes
+
+    - name: Ensure audit rule for /var/log/wtmp exists
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: "^(-a always,exit -F path=/var/log/wtmp|#audit-wtmp)"
+        line: "-a always,exit -F path=/var/log/wtmp -F perm=wa -k logins"
+        create: yes
+        state: present
+
+    - name: Audit 64-bit delete_module syscall
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: "^-a always,exit -F arch=b64 -S delete_module"
+        line: "-a always,exit -F arch=b64 -S delete_module -F auid>=1000 -F auid!=-1 -k module_chng"
+        create: yes
+        state: present
+
+    - name: Audit modifications to /etc/cron.d
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: "^-a always,exit -F path=/etc/cron.d"
+        line: "-a always,exit -F path=/etc/cron.d -F perm=wa -k cronjobs"
+        create: yes
+        state: present
+
+    - name: Audit modifications to /var/spool/cron
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: "^-a always,exit -F path=/var/spool/cron"
+        line: "-a always,exit -F path=/var/spool/cron -F perm=wa -k cronjobs"
+        create: yes
+        state: present
+
+    - name: Audit execution of /usr/bin/passwd
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: "^-a always,exit -F path=/usr/bin/passwd"
+        line: "-a always,exit -F path=/usr/bin/passwd -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-unix-update"
+        create: yes
+        state: present
+
+    - name: Ensure APT removes unused dependencies
+      lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: "^Unattended-Upgrade::Remove-Unused-Dependencies"
+        line: 'Unattended-Upgrade::Remove-Unused-Dependencies "true";'
+        state: present
+
+    - name: Ensure APT removes unused kernel packages
+      lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: "^Unattended-Upgrade::Remove-Unused-Kernel-Packages"
+        line: 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";'
+        state: present
+
+    - name: Ensure journal directories have correct group ownership and permissions
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: systemd-journal
+        mode: "2755"
+      loop:
+        - /var/log/journal
+        - /run/log/journal
+
+    - name: Ensure journal files have correct ownership and permissions
+      find:
+        paths:
+          - /var/log/journal
+          - /run/log/journal
+        recurse: yes
+        file_type: file
+      register: journal_files
+
+    - name: Set ownership and permissions on journal files
+      file:
+        path: "{{ item.path }}"
+        owner: root
+        group: systemd-journal
+        mode: "0640"
+      loop: "{{ journal_files.files }}"
+
+    - name: Ensure journal directories have correct ownership and permissions
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: systemd-journal
+        mode: "2640"
+      loop:
+        - /var/log/journal
+        - /run/log/journal
+
+    - name: Ensure SSH daemon only uses DoD-approved ciphers
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^Ciphers"
+        line: "Ciphers aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
+        state: present
+        create: yes
+        validate: "sshd -t -f %s"
+
+    - name: Ensure DoD ciphers are set in drop-in SSH config
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        regexp: "^Ciphers"
+        line: "Ciphers aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
+        state: present
+        create: yes
+        validate: "sshd -t -f %s"

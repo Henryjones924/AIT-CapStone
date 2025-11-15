@@ -1,0 +1,445 @@
+- name: STIG 2 Ubuntu 24
+  hosts: node
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: "Configure AIDE: Set SILENTREPORTS=no"
+      lineinfile:
+        path: /etc/default/aide
+        regexp: "^#?SILENTREPORTS="
+        line: "SILENTREPORTS=no"
+        create: yes
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Ensure audit log directory is owned by root:root
+      file:
+        path: /var/log/audit
+        owner: root
+        group: root
+        recurse: yes
+
+    - name: Remove any existing log_group parameter
+      lineinfile:
+        path: /etc/audit/auditd.conf
+        regexp: "^log_group"
+        state: absent
+
+    - name: Add correct log_group parameter (root)
+      lineinfile:
+        path: /etc/audit/auditd.conf
+        insertafter: "^log_file"
+        line: "log_group = root"
+
+    - name: Reload auditd configuration (send SIGHUP)
+      command: systemctl kill auditd -s SIGHUP
+      changed_when: true
+
+    - name: Add audit rule for /etc/cron.d
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: '^.*-w /etc/cron\.d/'
+        line: "-w /etc/cron.d/ -p wa -k cronjobs"
+
+    - name: Add audit rule for /var/spool/cron
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /var/spool/cron/"
+        line: "-w /var/spool/cron/ -p wa -k cronjobs"
+
+    - name: Ensure audit tool integrity block exists in aide.conf
+      blockinfile:
+        path: /etc/aide/aide.conf
+        marker: "# {mark} ANSIBLE MANAGED AUDIT TOOLS"
+        block: |
+          # Audit Tools
+          /sbin/auditctl   p+i+n+u+g+s+b+acl+xattrs+sha512
+          /sbin/auditd     p+i+n+u+g+s+b+acl+xattrs+sha512
+          /sbin/ausearch   p+i+n+u+g+s+b+acl+xattrs+sha512
+          /sbin/aureport   p+i+n+u+g+s+b+acl+xattrs+sha512
+          /sbin/autrace    p+i+n+u+g+s+b+acl+xattrs+sha512
+          /sbin/audispd    p+i+n+u+g+s+b+acl+xattrs+sha512
+          /sbin/augenrules p+i+n+u+g+s+b+acl+xattrs+sha512
+
+    - name: Change Auditd to 600
+      file:
+        path: /etc/audit/auditd.conf
+        mode: "0600"
+
+    - name: Add or update audit rule for fdisk
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /usr/sbin/fdisk"
+        line: "-w /usr/sbin/fdisk -p x -k fdisk"
+
+    - name: Add or update audit rule for kmod
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /bin/kmod"
+        line: "-w /bin/kmod -p x -k modules"
+
+    - name: Add or update audit rule for modprobe
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /sbin/modprobe"
+        line: "-w /sbin/modprobe -p x -k modules"
+
+    - name: Add or update audit rule for /var/log/btmp
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /var/log/btmp"
+        line: "-w /var/log/btmp -p wa -k logins"
+
+    - name: Add or update audit rule for /var/run/utmp
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /var/run/utmp"
+        line: "-w /var/run/utmp -p wa -k logins"
+
+    - name: Add or update audit rule for /var/run/wtmp
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /var/run/wtmp"
+        line: "-w /var/run/wtmp -p wa -k logins"
+
+    - name: Add or update 32-bit delete_module audit rule
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-S delete_module.*arch=b32"
+        line: "-a always,exit -F arch=b32 -S delete_module -F auid>=1000 -F auid!=-1 -k module_chng"
+
+    - name: Add or update audit rule for gpasswd
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/usr/bin/gpasswd"
+        line: "-a always,exit -F path=/usr/bin/gpasswd -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-gpasswd"
+
+    - name: Add or update audit rule for unix_update
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/sbin/unix_update"
+        line: "-a always,exit -F path=/sbin/unix_update -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-unix-update"
+
+    - name: Add or update audit rule for passwd
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/sbin/passwd"
+        line: "-a always,exit -F path=/sbin/passwd -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-unix-update"
+
+    - name: Add or update audit rule for /var/log/lastlog
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /var/log/lastlog"
+        line: "-w /var/log/lastlog -p wa -k logins"
+
+    - name: Add or update audit rule for /var/log/faillog
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-w /var/log/faillog"
+        line: "-w /var/log/faillog -p wa -k logins"
+
+    - name: Add or update audit rule for chacl
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/usr/bin/chacl"
+        line: "-a always,exit -F path=/usr/bin/chacl -F perm=x -F auid>=1000 -F auid!=-1 -k perm_chng"
+
+    - name: Add or update audit rule for setfacl
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/usr/bin/setfacl"
+        line: "-a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=-1 -k perm_chng"
+
+    - name: Add or update 32-bit xattr syscall audit rule for regular users
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr.*arch=b32.*auid>=1000"
+        line: "-a always,exit -F arch=b32 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid>=1000 -F auid!=-1 -k perm_mod"
+
+    - name: Add or update 32-bit xattr syscall audit rule for root
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: "^.*-S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr.*arch=b32.*auid=0"
+        line: "-a always,exit -F arch=b32 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid=0 -k perm_mod"
+
+    - name: Add or update 64-bit xattr syscall audit rule for regular users
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: "^.*-S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr.*arch=b64.*auid>=1000"
+        line: "-a always,exit -F arch=b64 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid>=1000 -F auid!=-1 -k perm_mod"
+
+    - name: Add or update 64-bit xattr syscall audit rule for root
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        regexp: "^.*-S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr.*arch=b64.*auid=0"
+        line: "-a always,exit -F arch=b64 -S setxattr,fsetxattr,lsetxattr,removexattr,fremovexattr,lremovexattr -F auid=0 -k perm_mod"
+
+    - name: Add or update audit rule for ssh-keysign
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/usr/lib/openssh/ssh-keysign"
+        line: "-a always,exit -F path=/usr/lib/openssh/ssh-keysign -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-ssh"
+
+    - name: Add or update audit rule for ssh-agent
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/usr/bin/ssh-agent"
+        line: "-a always,exit -F path=/usr/bin/ssh-agent -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-ssh"
+
+    - name: Add or update audit rule for umount
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/usr/bin/umount"
+        line: "-a always,exit -F path=/usr/bin/umount -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-umount"
+
+    - name: Add or update audit rule for mount
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/usr/bin/mount"
+        line: "-a always,exit -F path=/usr/bin/mount -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-mount"
+
+    - name: Add or update audit rule for chfn
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/usr/bin/chfn"
+        line: "-a always,exit -F path=/usr/bin/chfn -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-chfn"
+
+    - name: Add or update audit rule for su
+      lineinfile:
+        path: /etc/audit/rules.d/stig.rules
+        create: yes
+        regexp: "^.*-F path=/bin/su"
+        line: "-a always,exit -F path=/bin/su -F perm=x -F auid>=1000 -F auid!=-1 -k privileged-priv_change"
+
+    - name: Set permissions on /etc/audit/audit.rules
+      file:
+        path: /etc/audit/audit.rules
+        mode: "0640"
+        owner: root
+        group: root
+        state: file
+
+    - name: Set permissions on /etc/audit/auditd.conf
+      file:
+        path: /etc/audit/auditd.conf
+        mode: "0640"
+        owner: root
+        group: root
+        state: file
+
+    - name: Set permissions recursively on /etc/audit/rules.d
+      file:
+        path: /etc/audit/rules.d
+        recurse: yes
+        mode: "0640"
+        owner: root
+        group: root
+        state: directory
+
+    - name: Reload audit rules immediately
+      command: augenrules --load
+      changed_when: true
+
+    - name: Ensure Unattended-Upgrade::Remove-Unused-Dependencies is set to true
+      lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: "^Unattended-Upgrade::Remove-Unused-Dependencies"
+        line: 'Unattended-Upgrade::Remove-Unused-Dependencies "true";'
+        create: yes
+        state: present
+        backrefs: yes
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Ensure Unattended-Upgrade::Remove-Unused-Kernel-Packages is set to true
+      lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: "^Unattended-Upgrade::Remove-Unused-Kernel-Packages"
+        line: 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";'
+        create: yes
+        state: present
+        backrefs: yes
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Set permissions on /usr/bin/journalctl to 740
+      file:
+        path: /usr/bin/journalctl
+        mode: "0740"
+        owner: root
+        group: root
+        state: file
+
+    - name: Find log files under /var/log excluding btmp, wtmp, lastlog
+      find:
+        paths: /var/log
+        file_type: file
+        recurse: yes
+        patterns: ["*"]
+        excludes: ["*btmp", "*wtmp", "*lastlog"]
+      register: log_files
+
+    - name: Set permissions to 0640 for log files
+      file:
+        path: "{{ item.path }}"
+        mode: "0640"
+        owner: root
+        group: root
+      loop: "{{ log_files.files }}"
+
+    - name: Enable TCP syncookies at runtime
+      sysctl:
+        name: net.ipv4.tcp_syncookies
+        value: "1"
+        state: present
+        reload: yes
+
+    - name: Ensure TCP syncookies persist after reboot
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: "^net.ipv4.tcp_syncookies"
+        line: "net.ipv4.tcp_syncookies = 1"
+        state: present
+        create: yes
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Find all shared library files not owned by root group
+      find:
+        paths:
+          - /lib
+          - /lib64
+          - /usr/lib
+          - /usr/lib64
+        patterns: "*.so*"
+        file_type: file
+        recurse: yes
+        excludes: []
+      register: shared_libs
+
+    - name: Set group ownership to root for shared library files
+      file:
+        path: "{{ item.path }}"
+        group: root
+      loop: "{{ shared_libs.files }}"
+
+    - name: Ensure auth.* and authpriv.* logs to /var/log/secure
+      lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        regexp: "^auth.*,authpriv.*"
+        line: "auth.*,authpriv.* /var/log/secure"
+        state: present
+        create: yes
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Ensure daemon.* logs to /var/log/messages
+      lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        regexp: "^daemon.*"
+        line: "daemon.* /var/log/messages"
+        state: present
+        create: yes
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Restart rsyslog service to apply changes
+      systemd:
+        name: rsyslog
+        state: restarted
+        enabled: yes
+
+    - name: Ensure UMASK is set to 077 in /etc/login.defs
+      lineinfile:
+        path: /etc/login.defs
+        regexp: "^UMASK"
+        line: "UMASK 077"
+        state: present
+        create: yes
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Set group ownership to adm for /var/log/syslog
+      file:
+        path: /var/log/syslog
+        group: adm
+        owner: root
+        state: file
+
+    - name: Set group ownership of /var/log/syslog to adm
+      file:
+        path: /var/log/syslog
+        group: adm
+        owner: root
+        state: file
+
+    - name: Add immutable flag to audit.rules
+      lineinfile:
+        path: /etc/audit/rules.d/audit.rules
+        line: "-e 2"
+        state: present
+        insertafter: EOF
+
+    - name: Set owner of /var/log/syslog to syslog
+      file:
+        path: /var/log/syslog
+        owner: syslog
+        state: file
+    - name: Set group ownership of /var/log/syslog to adm
+      file:
+        path: /var/log/syslog
+        group: adm
+        state: file
+
+    - name: Remove conflicting sysctl settings
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /run/sysctl.d/*
+        - /usr/local/lib/sysctl.d/*
+        - /usr/lib/sysctl.d/*
+        - /lib/sysctl.d/*
+
+    - name: Ensure kernel.dmesg_restrict is set in /etc/sysctl.d/99-stig.conf
+      lineinfile:
+        path: /etc/sysctl.d/99-stig.conf
+        line: "kernel.dmesg_restrict = 1"
+        state: present
+        create: yes
+        owner: root
+        group: root
+        mode: "0644"
