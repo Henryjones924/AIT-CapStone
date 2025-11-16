@@ -156,19 +156,7 @@ services:
     security_opt:
       - no-new-privileges:true
   #End Proxy
-  #Tunnel
-  tunnel:
-    container_name: Cloudflare-Tunnel
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    command: tunnel run
-    environment:
-      - TUNNEL_TOKEN= TBD #####################
-    networks:
-      - net-public
-    security_opt:
-      - no-new-privileges:true
-  #End Tunnel
+
   #Start WatchTower
   watchtower:
     container_name: watchtower
