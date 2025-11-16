@@ -24,7 +24,7 @@ services:
     networks:
       - net-portainer
     userns_mode: host
-    read_only: true
+    #read_only: true
   #---------------------------------------------
   #----Grafana Stack-------------------------------------------
   #Start of Prometheus

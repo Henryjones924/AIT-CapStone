@@ -1,0 +1,66 @@
+- name: Prepare Docker Deamon
+  hosts: node01
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Stop Docker
+      ansible.builtin.service:
+        name: docker
+        enabled: yes
+        state: stopped
+
+    - name: Create Docker Data Directory
+      ansible.builtin.file:
+        path: "/opt/docker"
+        state: directory
+
+    - name: Docker Demon Config Update
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "metrics-addr": "0.0.0.0:9323",
+            "experimental" : false,
+            "data-root" : "/opt/docker",
+            "dns": ["192.168.6.2","8.8.8.8"],
+            "userns-remap": "default",
+            "log-level": "info",
+            "no-new-privileges": false,
+            "userland-proxy": true
+          }
+
+    - name: Get last used UID from /etc/subuid
+      ansible.builtin.command:
+        cmd: "awk -F: '{end=$2+$3; if(end>max) max=end} END {print max}' /etc/subuid"
+      register: last_uid_result
+
+    - name: Set next available dockremap start UID
+      set_fact:
+        dockremap_start: "{{ last_uid_result.stdout | int }}"
+
+    - name: Ensure dockremap entry in /etc/subuid
+      lineinfile:
+        path: /etc/subuid
+        regexp: "^dockremap:"
+        line: "dockremap:{{ dockremap_start }}:65536"
+        create: yes
+
+    - name: Ensure dockremap entry in /etc/subgid
+      lineinfile:
+        path: /etc/subgid
+        regexp: "^dockremap:"
+        line: "dockremap:{{ dockremap_start }}:65536"
+        create: yes
+
+    - name: Wait 5 seconds before restarting Docker
+      pause:
+        seconds: 5
+
+    - name: Restart Docker to apply remap
+      service:
+        name: docker
+        state: started

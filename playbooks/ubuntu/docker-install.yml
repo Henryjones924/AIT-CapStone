@@ -1,0 +1,63 @@
+- name: Install and Prepare Docker
+  hosts: node01
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    #https://docs.docker.com/engine/install/ubuntu/
+
+    - name: Prepare OS for Docker Instllation
+      ansible.builtin.apt:
+        pkg:
+          - docker.io
+          - docker-compose
+          - docker-compose-v2
+          - docker-doc
+          - podman-docker
+          - containerd
+          - runc
+        state: absent
+
+    - name: Install ca-certificates plugins-core
+      ansible.builtin.apt:
+        update_cache: yes
+        name: ca-certificates
+        state: latest
+
+    - name: Download Docker GPG keys
+      ansible.builtin.uri:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        method: get
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker repo
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/docker.sources
+        content: |
+          Types: deb
+          URIs: https://download.docker.com/linux/ubuntu
+          Suites: {{ ansible_lsb.codename }}
+          Components: stable
+          Signed-By: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Install ca-certificates plugins-core
+      ansible.builtin.apt:
+        update_cache: yes
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: latest
+
+    - name: Enable Docker Service
+      ansible.builtin.service:
+        name: docker
+        enabled: yes
+        state: restarted

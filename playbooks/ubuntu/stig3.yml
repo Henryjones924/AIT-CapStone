@@ -126,15 +126,6 @@
         - /var/log/journal
         - /run/log/journal
 
-    - name: Ensure SSH daemon only uses DoD-approved ciphers
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: "^Ciphers"
-        line: "Ciphers aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
-        state: present
-        create: yes
-        validate: "sshd -t -f %s"
-
     - name: Ensure DoD ciphers are set in drop-in SSH config
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config.d/stig.conf
@@ -143,3 +134,55 @@
         state: present
         create: yes
         validate: "sshd -t -f %s"
+
+    - name: Create /etc/ssh/ssh_config.d/stig.conf file
+      ansible.builtin.file:
+        path: /etc/ssh/ssh_config.d/stig.conf
+        state: touch
+        mode: "0600"
+        owner: root
+        group: root
+
+    - name: Ensure SSH ciphers
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/ssh_config
+        regexp: "^Ciphers"
+        line: "Ciphers aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
+        state: present
+        create: yes
+
+    - name: SSH Config Ciphers
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/ssh_config.d/stig.conf
+        regexp: "^Ciphers"
+        line: "Ciphers aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
+        state: present
+        create: yes
+
+    - name: SSH Config MACs
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/ssh_config.d/stig.conf
+        regexp: "^MACs"
+        line: "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256"
+        state: present
+        create: yes
+
+    - name: Automatic Lockout Faillock conf
+      ansible.builtin.lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: "^audit silent"
+        line: "audit silent deny = 3 fail_interval = 900 unlock_time = 0"
+        state: present
+        create: yes
+
+    - name: Set default inactivity period for new users
+      ansible.builtin.command:
+        cmd: useradd -D -f 35
+
+    - name: Set ClientAliveCountMax
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/stig.conf
+        regexp: "^ClientAliveCountMax"
+        line: "ClientAliveCountMax 1"
+        state: present
+        create: yes

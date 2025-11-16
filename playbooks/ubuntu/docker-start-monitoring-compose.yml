@@ -1,0 +1,33 @@
+- name: Prepare and Start Monitoring Containers
+  hosts: node01
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Create a directory if it does not exist
+      ansible.builtin.file:
+        path: /opt/docker/compose/monitoring
+        state: directory
+        mode: "0700"
+        owner: "root"
+    - name: Copy Monitoring Compose from controller
+      ansible.builtin.copy:
+        remote_src: false
+        src: /home/henry/ansible/docker/compose/monitoring/docker-compose.yml
+        dest: /opt/docker/compose/monitoring/docker-compose.yml
+        mode: "0700"
+        backup: yes
+    - name: Create Docker External Network net-portainer
+      community.docker.docker_network:
+        name: net-portainer
+    - name: Create Docker External Network net-grafana
+      community.docker.docker_network:
+        name: net-grafana
+
+    - name: Create and start services
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/monitoring/
+      register: output

@@ -49,15 +49,6 @@
         owner: root
         group: root
 
-    - name: Ensure SSH daemon only uses FIPS-approved ciphers
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: "^Ciphers"
-        line: "Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes128-ctr"
-        state: present
-        create: yes
-        validate: "sshd -t -f %s"
-
     - name: Set approved MACs in sshd_config
       lineinfile:
         path: /etc/ssh/sshd_config
@@ -231,20 +222,23 @@
         insertafter: BOF
         state: present
 
-    - name: Comment out default auth logging
+    - name: Ensure auth and authpriv logs go to /var/log/secure
       ansible.builtin.lineinfile:
         path: /etc/rsyslog.d/50-default.conf
-        regexp: '^auth,authpriv\.\*'
-        state: absent
-        backup: yes
-
-    - name: Add auth logging to /var/log/secure
-      ansible.builtin.lineinfile:
-        path: /etc/rsyslog.d/50-default.conf
-        line: "auth.*,authpriv.* /var/log/secure"
+        regexp: "^auth.*,authpriv.*"
+        line: "auth.*,authpriv.*    -/var/log/secure"
         state: present
         create: yes
-        insertafter: EOF
+        backup: yes
+
+    - name: Ensure daemon logs go to /var/log/messages
+      ansible.builtin.lineinfile:
+        path: /etc/rsyslog.d/50-default.conf
+        regexp: "^daemon.*"
+        line: "daemon.*             -/var/log/messages"
+        state: present
+        create: yes
+        backup: yes
 
     - name: Add audit rule for user/group changes on /etc/passwd
       ansible.builtin.lineinfile:
