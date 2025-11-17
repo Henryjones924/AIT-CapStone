@@ -1,4 +1,4 @@
-- name: Prepare and Start Monitoring Containers
+- name: Prepare and Start Service Containers
   hosts: node01
   become: true
   vars_files:
@@ -20,6 +20,22 @@
         dest: /opt/docker/compose/services/docker-compose.yml
         mode: "0700"
         backup: yes
+
+    - name: Create Docker External Network net-grafana
+      community.docker.docker_network:
+        name: wgnet
+        ipam_config:
+          - subnet: 172.24.0.0/24
+            gateway: 172.24.0.1
+
+    - set_fact:
+        host_ip: "{{ ansible_default_ipv4.address }}"
+
+    - name: Change Pihole network bindings to host IP in service compose
+      ansible.builtin.replace:
+        path: /opt/docker/compose/services/docker-compose.yml
+        regexp: '192\.168\.6\.2'
+        replace: "{{ ansible_default_ipv4.address }}"
 
     - name: Create and start services
       community.docker.docker_compose_v2:
