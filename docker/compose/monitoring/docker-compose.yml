@@ -4,6 +4,7 @@ volumes:
   prometheus-data:
   node-exporter:
   grafana-storage:
+  grafana-provision:
   loki-data:
   promtail-data:
   dockercomposeservices_proxy-logs:
@@ -78,8 +79,9 @@ services:
       #- '3000:3000'
     volumes:
       - grafana-storage:/var/lib/grafana
+      - grafana-provision:/etc/grafana/provisioning
     environment:
-      - GF_SERVER_ROOT_URL=https://grafana.hjhomelab.com/
+      - GF_SERVER_ROOT_URL=https://grafana.ait.hjhomelab.com/
         # - GF_INSTALL_PLUGINS=grafana-clock-panel
     entrypoint:
       - sh
