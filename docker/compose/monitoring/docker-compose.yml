@@ -8,9 +8,6 @@ volumes:
   grafana-storage:
   grafana-provision:
   loki-data:
-  #promtail-data:
-  dockercomposeservices_proxy-logs:
-    external: true
 
 #-----Portainer------------------------------------
 services:
@@ -86,7 +83,6 @@ services:
       - grafana-provision:/etc/grafana/provisioning:ro
     environment:
       - GF_SERVER_ROOT_URL=https://grafana.ait.hjhomelab.com/
-
     networks:
       - net-grafana
       - net-grafana_source
