@@ -222,11 +222,11 @@
         insertafter: BOF
         state: present
 
-    - name: Ensure auth and authpriv logs go to /var/log/secure
+    - name: Ensure auth and authpriv logs go to /var/log/auth
       ansible.builtin.lineinfile:
         path: /etc/rsyslog.d/50-default.conf
         regexp: "^auth.*,authpriv.*"
-        line: "auth.*,authpriv.*    -/var/log/secure"
+        line: "auth.*,authpriv.*    /var/log/auth.log"
         state: present
         create: yes
         backup: yes

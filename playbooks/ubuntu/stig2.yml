@@ -353,17 +353,6 @@
         group: root
       loop: "{{ shared_libs.files }}"
 
-    - name: Ensure auth.* and authpriv.* logs to /var/log/secure
-      lineinfile:
-        path: /etc/rsyslog.d/50-default.conf
-        regexp: "^auth.*,authpriv.*"
-        line: "auth.*,authpriv.* /var/log/secure"
-        state: present
-        create: yes
-        owner: root
-        group: root
-        mode: "0644"
-
     - name: Ensure daemon.* logs to /var/log/messages
       lineinfile:
         path: /etc/rsyslog.d/50-default.conf

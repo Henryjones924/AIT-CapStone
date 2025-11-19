@@ -2,11 +2,13 @@ volumes:
   portainer_data:
   prometheus:
   prometheus-data:
+  alloy:
+  alloy-data:
   node-exporter:
   grafana-storage:
   grafana-provision:
   loki-data:
-  promtail-data:
+  #promtail-data:
   dockercomposeservices_proxy-logs:
     external: true
 
@@ -62,11 +64,13 @@ services:
     container_name: node_exporter
     command:
       - "--path.rootfs=/host"
-    network_mode: host
+    #network_mode: host
     pid: host
     restart: unless-stopped
     volumes:
       - /:/host:ro,rslave
+    networks:
+      - net-prom
     userns_mode: host
     read_only: true
 
@@ -79,29 +83,10 @@ services:
       #- '3000:3000'
     volumes:
       - grafana-storage:/var/lib/grafana
-      - grafana-provision:/etc/grafana/provisioning
+      - grafana-provision:/etc/grafana/provisioning:ro
     environment:
       - GF_SERVER_ROOT_URL=https://grafana.ait.hjhomelab.com/
-        # - GF_INSTALL_PLUGINS=grafana-clock-panel
-    entrypoint:
-      - sh
-      - -euc
-      - |
-        mkdir -p /etc/grafana/provisioning/datasources
-        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
-        apiVersion: 1
-        datasources:
-        - name: Loki
-          type: loki
-          access: proxy
-          orgId: 1
-          url: http://loki:3100
-          basicAuth: false
-          isDefault: true
-          version: 1
-          editable: false
-        EOF
-        /run.sh
+
     networks:
       - net-grafana
       - net-grafana_source
@@ -128,10 +113,9 @@ services:
 
   loki:
     image: grafana/loki:latest
-    container_name:
-      loki
-      #ports:
-      #- "3100:3100"
+    container_name: loki
+    #ports:
+    #- "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - loki-data:/etc/loki/
@@ -142,20 +126,21 @@ services:
       unless-stopped
       #read_only: true
 
-  promtail:
-    container_name: promtail
-    image: grafana/promtail:latest
+  #Grafana Alloy Replacement for Promtail
+  alloy:
+    container_name: alloy
+    image: grafana/alloy:latest
+    restart: unless-stopped
+    command: >
+      run
+      --storage.path=/var/lib/alloy/data
+        /etc/alloy/config.alloy
+
     volumes:
-      - /var/log:/var/log:ro
-      #- dockercomposeservices_proxy-logs:/proxy:ro
-      - promtail-data:/etc/promtail/:ro
-    command: -config.file=/etc/promtail/config.yml
+      - alloy:/etc/alloy:ro
+      - alloy-data:/var/lib/alloy/data
     networks:
       - net-loki
-    restart: unless-stopped
-    userns_mode:
-      host
-      #read_only: true
 
 #--------------------------------------------
 networks:
