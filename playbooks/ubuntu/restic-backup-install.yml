@@ -1,0 +1,55 @@
+- name: Install and Prepare Restic Backups
+  hosts: node01
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Install Restic Backup
+      ansible.builtin.apt:
+        update_cache: yes
+        name: restic
+        state: latest
+
+    - name: Create Backup LVM
+      community.general.lvol:
+        vg: ubuntu-vg
+        lv: lv-backup
+        size: 10G
+
+    - name: Create Backup Directory
+      ansible.builtin.file:
+        path: /backup
+        state: directory
+        mode: "0700"
+
+    - name: Create XFS File System on Backups
+      community.general.filesystem:
+        fstype: xfs
+        dev: /dev/ubuntu-vg/lv-backup
+
+    - name: get backup LV UUID
+      command: blkid -s UUID -o value /dev/ubuntu-vg/lv-backup
+      register: lvbackupuuid
+      changed_when: false
+
+    - name: Set fact UUID
+      set_fact:
+        backupLVUUID: "{{ lvbackupuuid.stdout }}"
+
+    - name: Add backup mount to fstab
+      lineinfile:
+        path: /etc/fstab
+        line: "UUID={{ backupLVUUID }} /backup xfs defaults 0 1"
+        regexp: "^UUID={{ backupLVUUID }}\\s+/backup\\s+"
+        state: present
+        backup: yes
+
+    - name: Ensure /backup is mounted
+      mount:
+        path: /backup
+        src: "UUID={{ backupLVUUID }}"
+        fstype: xfs
+        state: mounted

@@ -1,0 +1,83 @@
+- name: Restic Backup Configuration
+  hosts: node01
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Create Restic Password File
+      ansible.builtin.file:
+        path: /backup/.env
+        state: touch
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Add password
+      lineinfile:
+        path: /backup/.env
+        line: "{{ restic_password }}"
+
+    - name: Create Restic Repo
+      command: restic init
+      environment:
+        RESTIC_REPOSITORY: /backup/restic
+        RESTIC_PASSWORD_FILE: /backup/.env
+      args:
+        creates: /backup/restic/config
+
+    - name: Create Script Backup Directory
+      ansible.builtin.file:
+        path: /opt/scripts/backup
+        state: directory
+        mode: "0700"
+        owner: root
+        group: root
+
+    - name: Create Backup Logging Directory
+      ansible.builtin.file:
+        path: /var/log/restic/
+        state: directory
+        mode: "0600"
+        owner: root
+        group: root
+
+    - name: Copy Restic Backup Runner
+      ansible.builtin.copy:
+        remote_src: false
+        src: /home/henry/ansible/backups/restic_local.sh
+        dest: /opt/scripts/backup/restic_local.sh
+        mode: "0700"
+        backup: yes
+
+    - name: Copy Restic Backup Post
+      ansible.builtin.copy:
+        remote_src: false
+        src: /home/henry/ansible/backups/restic_post_backup.sh
+        dest: /opt/scripts/backup/restic_post_backup.sh
+        mode: "0700"
+        backup: yes
+
+    - name: Copy Restic Backup Pre
+      ansible.builtin.copy:
+        remote_src: false
+        src: /home/henry/ansible/backups/restic_pre_backup.sh
+        dest: /opt/scripts/backup/restic_pre_backup.sh
+        mode: "0700"
+        backup: yes
+
+    - name: Create backup Cron Job
+      ansible.builtin.cron:
+        name: "Resitc Backup Daily"
+        job: "/opt/scripts/backup/restic_local.sh"
+        hour: "2"
+        state: present
+
+    - name: Adding Restic Backup Log Rotate Job
+      ansible.builtin.copy:
+        remote_src: false
+        src: /home/henry/ansible/backups/restic_logrotate
+        dest: /etc/logrotate.d/
+        mode: "0600"

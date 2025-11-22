@@ -1,5 +1,5 @@
 #!/bin/bash
-export RESTIC_REPOSITORY="/mnt/backups/restic"
-export RESTIC_PASSWORD=
+export RESTIC_REPOSITORY="/backup/restic"
+export RESTIC_PASSWORD_FILE="/backup/.env"
 
 restic check --read-data
