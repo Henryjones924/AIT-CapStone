@@ -52,7 +52,7 @@
         mode: "0700"
         backup: yes
 
-    - name: Copy Restic Backup Post
+    - name: Copy Restic Backup Post Task
       ansible.builtin.copy:
         remote_src: false
         src: "{{ controller_deploy_directory }}/backups/restic_post_backup.sh"
@@ -60,7 +60,7 @@
         mode: "0700"
         backup: yes
 
-    - name: Copy Restic Backup Pre
+    - name: Copy Restic Backup Pre Task
       ansible.builtin.copy:
         remote_src: false
         src: "{{ controller_deploy_directory }}/backups/restic_pre_backup.sh"

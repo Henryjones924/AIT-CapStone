@@ -1,0 +1,43 @@
+- name: Recovery from latest snapshot
+  hosts: node01
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Clean out /backup/restic
+      ansible.builtin.file:
+        path: /backup/restic
+        owner: root
+        state: absent
+
+    - name: Create Restic Password File
+      ansible.builtin.file:
+        path: /backup/.env
+        state: touch
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Add password
+      lineinfile:
+        path: /backup/.env
+        line: "{{ restic_password }}"
+
+    # - name: Check if backup file exists on controller
+    #   stat:
+    #     path: "/tmp/restic.tgz"
+    #   register: backup_file
+
+    # - name: Fail if backup file was not copied
+    #   fail:
+    #     msg: "Backup file was not copied"
+    #   when: not backup_file.stat.exists
+
+    - name: Unarchive a file from controller to node
+      ansible.builtin.unarchive:
+        src: "{{ controller_deploy_directory }}/docker/backup-repo/restic.tgz"
+        dest: /backup/
+        remote_src: no
