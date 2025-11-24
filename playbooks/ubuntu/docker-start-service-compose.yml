@@ -17,7 +17,7 @@
     - name: Copy Monitoring Compose from controller
       ansible.builtin.copy:
         remote_src: false
-        src: /home/henry/ansible/docker/compose/services/docker-compose.yml
+        src: "{{ controller_deploy_directory }}/docker/compose/services/docker-compose.yml"
         dest: /opt/docker/compose/services/docker-compose.yml
         mode: "0700"
         backup: yes

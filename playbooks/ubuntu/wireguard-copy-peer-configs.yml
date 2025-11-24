@@ -18,6 +18,6 @@
     - name: Fetch WireGuard configs
       ansible.builtin.fetch:
         src: "{{ item.path }}"
-        dest: /home/henry/ansible/docker/container-data/wireguard/connections/
+        dest: "{{ controller_deploy_directory }}/docker/container-data/wireguard/connections/"
         flat: yes
       loop: "{{ wg_peer_files.files }}"

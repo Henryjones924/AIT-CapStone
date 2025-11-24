@@ -47,7 +47,7 @@
     - name: Copy Restic Backup Runner
       ansible.builtin.copy:
         remote_src: false
-        src: /home/henry/ansible/backups/restic_local.sh
+        src: "{{ controller_deploy_directory }}/backups/restic_local.sh"
         dest: /opt/scripts/backup/restic_local.sh
         mode: "0700"
         backup: yes
@@ -55,7 +55,7 @@
     - name: Copy Restic Backup Post
       ansible.builtin.copy:
         remote_src: false
-        src: /home/henry/ansible/backups/restic_post_backup.sh
+        src: "{{ controller_deploy_directory }}/backups/restic_post_backup.sh"
         dest: /opt/scripts/backup/restic_post_backup.sh
         mode: "0700"
         backup: yes
@@ -63,7 +63,7 @@
     - name: Copy Restic Backup Pre
       ansible.builtin.copy:
         remote_src: false
-        src: /home/henry/ansible/backups/restic_pre_backup.sh
+        src: "{{ controller_deploy_directory }}/backups/restic_pre_backup.sh"
         dest: /opt/scripts/backup/restic_pre_backup.sh
         mode: "0700"
         backup: yes
@@ -78,6 +78,6 @@
     - name: Adding Restic Backup Log Rotate Job
       ansible.builtin.copy:
         remote_src: false
-        src: /home/henry/ansible/backups/restic_logrotate
+        src: "{{ controller_deploy_directory }}/backups/restic_logrotate"
         dest: /etc/logrotate.d/
         mode: "0600"
