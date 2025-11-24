@@ -87,7 +87,7 @@ services:
       - net-grafana
       - net-grafana_source
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest

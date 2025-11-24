@@ -2,3 +2,4 @@ vault/secrets.yml
 *.secret
 *.key
 *.env
+wireguard/connections/*

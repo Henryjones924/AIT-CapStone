@@ -1,0 +1,32 @@
+- name: Stop and Start Service and Monitoring Containers
+  hosts: node01
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Stop Compose Monitoring
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/monitoring/
+        state: absent
+      register: output
+
+    - name: Stop Compose Services
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/services/
+        state: absent
+      register: output
+
+    - name: Start Compose Monitoring
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/monitoring/
+        state: present
+      register: output
+
+    - name: Start Compose Services
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/services/
+        state: present
+      register: output

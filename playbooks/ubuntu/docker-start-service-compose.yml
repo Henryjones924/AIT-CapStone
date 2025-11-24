@@ -13,6 +13,7 @@
         state: directory
         mode: "0700"
         owner: "root"
+
     - name: Copy Monitoring Compose from controller
       ansible.builtin.copy:
         remote_src: false
@@ -31,11 +32,20 @@
     - set_fact:
         host_ip: "{{ ansible_default_ipv4.address }}"
 
+    - set_fact:
+        host_network: "{{ ansible_default_ipv4.network }}"
+
+    - name: Changing wireguard network in compose
+      ansible.builtin.replace:
+        path: /opt/docker/compose/services/docker-compose.yml
+        regexp: '192\.168\.6\.0'
+        replace: "{{ host_network }}"
+
     - name: Change Pihole network bindings to host IP in service compose
       ansible.builtin.replace:
         path: /opt/docker/compose/services/docker-compose.yml
         regexp: '192\.168\.6\.2'
-        replace: "{{ ansible_default_ipv4.address }}"
+        replace: "{{ host_ip }}"
 
     - name: Create and start services
       community.docker.docker_compose_v2:

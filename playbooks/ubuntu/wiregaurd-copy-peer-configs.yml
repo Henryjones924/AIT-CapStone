@@ -1,0 +1,23 @@
+- name: WireGuard Copy Client Configs to Controller
+  hosts: node
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Find WireGuard peer configs
+      ansible.builtin.find:
+        paths: /opt/docker
+        patterns: "peer[0-9]+\\.conf"
+        use_regex: yes
+        recurse: yes
+      register: wg_peer_files
+
+    - name: Fetch WireGuard configs
+      ansible.builtin.fetch:
+        src: "{{ item.path }}"
+        dest: /home/henry/ansible/docker/container-data/wireguard/connections/
+        flat: yes
+      loop: "{{ wg_peer_files.files }}"

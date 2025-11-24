@@ -9,7 +9,7 @@ volumes:
   pihole-pi:
   pihole-dnsmasq:
   watchtower:
-  wiregaurd-config:
+  wireguard-config:
   vaultwarden:
 
 services:
@@ -34,10 +34,10 @@ services:
     networks:
       - no-internet
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
 
   #------------------------ ---------------------------
-  #Start WireGaurd ------------------------------------
+  #Start Wireguard ------------------------------------
   wireguard:
     image: lscr.io/linuxserver/wireguard:latest
     container_name: wireguard
@@ -52,26 +52,26 @@ services:
       - PEERS=6
       - PEERDNS=auto
       - INTERNAL_SUBNET=10.13.13.0
-      - SERVERURL=vpn.hjhomelab.com
+      - SERVERURL=vpn.ait.hjhomelab.com
       - LOG_CONFS=true
       - ALLOWEDIPS=192.168.6.0/24
     ports:
       - 51820:51820/udp
     volumes:
-      - wiregaurd-config:/config
+      - wireguard-config:/config
       - /lib/modules:/lib/modules
     sysctls:
       net.ipv4.conf.all.src_valid_mark: 1
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     networks:
       wireguard:
         ipv4_address: 172.24.0.2
     dns:
       - 192.168.6.2
 
-  #End WireGaurd ---------------------------------------
+  #End Wireguard ---------------------------------------
   #Start PiHole ----------------------------------------
   pihole:
     container_name: pihole
@@ -88,7 +88,7 @@ services:
       - "pihole-dnsmasq:/etc/dnsmasq.d"
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     userns_mode: host
     networks:
       - net-pihole
@@ -111,7 +111,7 @@ services:
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     networks:
       - net-nextcloud
 
@@ -130,7 +130,7 @@ services:
       - MYSQL_HOST=db
       - NEXTCLOUD_TRUSTED_DOMAINS=cloud.ait.hjhomelab.com
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     networks:
       - net-public
       - net-nextcloud
@@ -155,7 +155,7 @@ services:
       - net-grafana
       - net-portainer
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
   #End Proxy
 
   #Start WatchTower
