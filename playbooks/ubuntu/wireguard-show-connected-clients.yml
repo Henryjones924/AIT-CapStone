@@ -1,0 +1,17 @@
+- name: WireGuard Show Connected Clients
+  hosts: node
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Show wireGuard peers
+      ansible.builtin.command:
+        cmd: docker exec -it wireguard wg show
+      register: wg_peers
+
+    - name: Display output
+      ansible.builtin.debug:
+        msg: "{{ wg_peers.stdout }}"

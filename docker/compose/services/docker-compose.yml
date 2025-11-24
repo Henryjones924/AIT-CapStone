@@ -44,6 +44,10 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+    #May not need the above, try apt purge resolvconf
     environment:
       - PUID=1000
       - PGID=1000
