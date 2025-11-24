@@ -186,3 +186,10 @@
         line: "ClientAliveCountMax 1"
         state: present
         create: yes
+
+    - name: Change ssh_config.d Permissions
+      ansible.builtin.file:
+        path: /etc/ssh/ssh_config.d
+        state: directory
+        mode: "0644"
+        recurse: yes

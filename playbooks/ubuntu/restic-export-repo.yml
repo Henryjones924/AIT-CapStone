@@ -1,0 +1,35 @@
+- name: Export Restic REPO
+  hosts: node01
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Create Restic REPO Tar
+      archive:
+        path: /backup/restic
+        dest: /tmp/restic.tgz
+        owner: ansible
+
+    - name: Trigger Script to SCP from Node
+      command: "{{ controller_deploy_directory }}/docker/backup-repo/pullbackup.sh"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Check if backup file exists on controller
+      stat:
+        path: "{{ controller_deploy_directory }}/docker/backup-repo/restic.tgz"
+      delegate_to: localhost
+      register: backup_file
+
+    - name: Fail if backup file was not copied
+      fail:
+        msg: "Backup file was not copied"
+      when: not backup_file.stat.exists
+
+    - name: Cleanup /tmp/restic.tgz
+      ansible.builtin.file:
+        path: /tmp/restic.tgz
+        state: absent

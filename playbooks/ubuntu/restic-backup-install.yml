@@ -17,7 +17,7 @@
       community.general.lvol:
         vg: ubuntu-vg
         lv: lv-backup
-        size: 10G
+        size: 20G
 
     - name: Create Backup Directory
       ansible.builtin.file:

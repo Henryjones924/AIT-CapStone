@@ -3,3 +3,4 @@ vault/secrets.yml
 *.key
 *.env
 docker/container-data/wireguard/connections/*
+docker/backup-repo/*.tgz

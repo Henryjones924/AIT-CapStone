@@ -1,10 +1,11 @@
 #!/bin/bash
 
-#list of running container IDs
-containers=$(docker ps -q)
+#List of paused container IDs
+containers=$(docker ps -q --filter status=paused)
 
-#each container and pause it
 for container_id in $containers; do
-        docker pause "$container_id" >/dev/null
+    docker unpause "$container_id" >/dev/null
+    sleep 2
 done
-sleep 20
+sleep 3
+
