@@ -135,8 +135,10 @@ services:
     volumes:
       - alloy:/etc/alloy:ro
       - alloy-data:/var/lib/alloy/data
+      - /var/log:/var/log:ro
     networks:
       - net-loki
+    userns_mode: host
 
 #--------------------------------------------
 networks:

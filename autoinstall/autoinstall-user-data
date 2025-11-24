@@ -1,0 +1,254 @@
+#cloud-config
+# See the autoinstall documentation at:
+# https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html
+autoinstall:
+  apt:
+    disable_components: []
+    fallback: offline-install
+    geoip: true
+    mirror-selection:
+      primary:
+        - country-mirror
+        - arches: &id001
+            - amd64
+            - i386
+          uri: http://archive.ubuntu.com/ubuntu/
+        - arches: &id002
+            - s390x
+            - arm64
+            - armhf
+            - powerpc
+            - ppc64el
+            - riscv64
+          uri: http://ports.ubuntu.com/ubuntu-ports
+    preserve_sources_list: false
+    security:
+      - arches: *id001
+        uri: http://security.ubuntu.com/ubuntu/
+      - arches: *id002
+        uri: http://ports.ubuntu.com/ubuntu-ports
+  codecs:
+    install: false
+
+  drivers:
+    install: false
+  identity:
+    hostname: node0
+    password: $6$TeNofx42TCN70Rxz$P1O5ii2W2ZpSdALCFC/gCmS.YXy7eqJ3bGft1Nt3qfJZJ4.qMbhN/8uB2L1N5QjScDV7mH75uB/8yI4gujW5O.
+    realname: ansible
+    username: ansible
+  kernel:
+    package: linux-generic
+  keyboard:
+    layout: us
+    toggle: null
+    variant: ""
+  locale: en_US.UTF-8
+  network:
+    ethernets:
+      ens33:
+        dhcp4: true
+    version: 2
+  oem:
+    install: auto
+  source:
+    id: ubuntu-server
+    search_drivers: false
+  ssh:
+    allow-pw: true
+    authorized-keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdhbDts5Go/9Y+FQja6JxCTjORZfxdIoHrT7/R3FRx3/rwSdv/6CxrJ9HWUGVXidi+/sciwhApAXCwUfKOhOhoN8G0wfYU8CjyWNznd7ptWgnGxvRFNDtZfpKa0hecifiDxj+nploRDWUS5IshpyZCF7K7XPsxlz3HnCOPr29nBkMir/2iXJbmYptUac9G0NrTJfkA0o4CZrej2ckmdbU3aKmWKMaYBTEi3+OiCe9uldNg5ynG0Fxd97FXj9zznifYZ7VPi/iZW7J5Z6Q6B0UkGMbdXeno63vJGFR18xfnGwR/g4UOofZHI/WpKlYQveupIZtzoRbaeM8HCSXbYReRAyWbnwJteDkEPydoxAna9Oj+HsFT8Nu9rxjqOpFUOFR74LfJ6D8YEou/UqMOMlw584EG3Ch0KgpMka2T4Zi6I76pnCOgZ4hd21QyYzw7r9tl95KIky+IFHmMy/5wLEAlx7YH0Npk1dr28nK+5a8O9aPh6gKAdzZVDQAPLLLoA+MB36kCUbIrQCgei6OMl/sOd/TD7icL4BR/mSHBKW7raY/XnJtmvkOTOSjtJ0cNokyLV4lcXrB635yBQgl5wOuSrWxGTYVDc/z2/y9JrIX78l7OHyReyyjjWKjpimOgHsKeGifCExN5aU8bvAR/lsDluljIp4uYbpplanGmFywj+Q== ansible@localhost.localdomain"
+    install-server: true
+  storage:
+    config:
+      - ptable: gpt
+        path: /dev/sda
+        wipe: superblock-recursive
+        preserve: false
+        name: ""
+        grub_device: true
+        id: disk-sda
+        type: disk
+      - device: disk-sda
+        size: 1048576
+        flag: bios_grub
+        number: 1
+        preserve: false
+        grub_device: false
+        offset: 1048576
+        path: /dev/sda1
+        id: partition-0
+        type: partition
+      - device: disk-sda
+        size: 2147483648
+        wipe: superblock
+        number: 2
+        preserve: false
+        grub_device: false
+        offset: 2097152
+        path: /dev/sda2
+        id: partition-1
+        type: partition
+      - fstype: ext4
+        volume: partition-1
+        preserve: false
+        id: format-0
+        type: format
+      - device: disk-sda
+        size: 105223553024
+        wipe: superblock
+        number: 3
+        preserve: false
+        grub_device: false
+        offset: 2149580800
+        path: /dev/sda3
+        id: partition-2
+        type: partition
+      - name: ubuntu-vg
+        devices:
+          - partition-2
+        preserve: false
+        id: lvm_volgroup-0
+        type: lvm_volgroup
+      - name: lv-var
+        volgroup: lvm_volgroup-0
+        size: 5368709120B
+        wipe: superblock
+        preserve: false
+        path: /dev/ubuntu-vg/lv-var
+        id: lvm_partition-1
+        type: lvm_partition
+      - fstype: xfs
+        volume: lvm_partition-1
+        preserve: false
+        id: format-2
+        type: format
+      - name: lv-var-log
+        volgroup: lvm_volgroup-0
+        size: 1073741824B
+        wipe: superblock
+        preserve: false
+        path: /dev/ubuntu-vg/lv-var-log
+        id: lvm_partition-2
+        type: lvm_partition
+      - fstype: xfs
+        volume: lvm_partition-2
+        preserve: false
+        id: format-3
+        type: format
+      - name: lv-var-log-audit
+        volgroup: lvm_volgroup-0
+        size: 1073741824B
+        wipe: superblock
+        preserve: false
+        path: /dev/ubuntu-vg/lv-var-log-audit
+        id: lvm_partition-3
+        type: lvm_partition
+      - fstype: xfs
+        volume: lvm_partition-3
+        preserve: false
+        id: format-4
+        type: format
+      - name: lv-tmp
+        volgroup: lvm_volgroup-0
+        size: 2147483648B
+        wipe: superblock
+        preserve: false
+        path: /dev/ubuntu-vg/lv-tmp
+        id: lvm_partition-4
+        type: lvm_partition
+      - fstype: xfs
+        volume: lvm_partition-4
+        preserve: false
+        id: format-5
+        type: format
+      - name: lv-var-tmp
+        volgroup: lvm_volgroup-0
+        size: 1073741824B
+        wipe: superblock
+        preserve: false
+        path: /dev/ubuntu-vg/lv-var-tmp
+        id: lvm_partition-5
+        type: lvm_partition
+      - fstype: xfs
+        volume: lvm_partition-5
+        preserve: false
+        id: format-6
+        type: format
+      - name: lv-home
+        volgroup: lvm_volgroup-0
+        size: 10737418240B
+        wipe: superblock
+        preserve: false
+        path: /dev/ubuntu-vg/lv-home
+        id: lvm_partition-6
+        type: lvm_partition
+      - fstype: xfs
+        volume: lvm_partition-6
+        preserve: false
+        id: format-7
+        type: format
+      - name: lv-opt
+        volgroup: lvm_volgroup-0
+        size: 10737418240B
+        wipe: superblock
+        preserve: false
+        path: /dev/ubuntu-vg/lv-opt
+        id: lvm_partition-7
+        type: lvm_partition
+      - fstype: xfs
+        volume: lvm_partition-7
+        preserve: false
+        id: format-8
+        type: format
+      - name: lv-root
+        volgroup: lvm_volgroup-0
+        size: 10737418240B
+        wipe: superblock
+        preserve: false
+        path: /dev/ubuntu-vg/lv-root
+        id: lvm_partition-8
+        type: lvm_partition
+      - fstype: xfs
+        volume: lvm_partition-8
+        preserve: false
+        id: format-9
+        type: format
+      - path: /
+        device: format-9
+        id: mount-9
+        type: mount
+      - path: /boot
+        device: format-0
+        id: mount-0
+        type: mount
+      - path: /var
+        device: format-2
+        id: mount-2
+        type: mount
+      - path: /var/log
+        device: format-3
+        id: mount-3
+        type: mount
+      - path: /var/log/audit
+        device: format-4
+        id: mount-4
+        type: mount
+      - path: /tmp
+        device: format-5
+        id: mount-5
+        type: mount
+      - path: /var/tmp
+        device: format-6
+        id: mount-6
+        type: mount
+      - path: /home
+        device: format-7
+        id: mount-7
+        type: mount
+      - path: /opt
+        device: format-8
+        id: mount-8
+        type: mount
+  updates: security
+  version: 1
