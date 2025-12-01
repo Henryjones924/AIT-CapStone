@@ -45,7 +45,7 @@
           Signed-By: /etc/apt/keyrings/docker.asc
         mode: "0644"
 
-    - name: Install ca-certificates plugins-core
+    - name: Install Docker Components
       ansible.builtin.apt:
         update_cache: yes
         pkg:
