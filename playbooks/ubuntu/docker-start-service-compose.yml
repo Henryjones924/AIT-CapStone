@@ -22,7 +22,7 @@
         mode: "0700"
         backup: yes
 
-    - name: Create Docker External Network net-grafana
+    - name: Create Docker External Network for WireGuard
       community.docker.docker_network:
         name: wgnet
         ipam_config:
