@@ -1,5 +1,5 @@
 - name: Restic Backup Configuration
-  hosts: node01
+  hosts: node
   become: true
   vars_files:
     - ../../vault/secrets.yml

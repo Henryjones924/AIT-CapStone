@@ -1,0 +1,21 @@
+#Setup and start a compliance scan
+#- import_playbook: install-oscap.yml
+#Install docker
+- import_playbook: docker-install.yml
+#Configure docker
+- import_playbook: docker-daemon-config.yml
+#Setup and install monitoring
+- import_playbook: docker-start-monitoring-compose.yml
+#Setup and install Service
+- import_playbook: docker-start-service-compose.yml
+#Install backups solution
+- import_playbook: restic-backup-install.yml
+#Configure backup solution
+- import_playbook: restic-backup-config.yml
+#Push golden backup to host
+- import_playbook: restic-push-repo.yml
+#Restore from golden backup
+- import_playbook: restic-recover-latest-snapshot.yml
+#Redeploy compose files
+- import_playbook: docker-start-monitoring-compose.yml
+- import_playbook: docker-start-service-compose.yml

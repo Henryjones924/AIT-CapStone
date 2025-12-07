@@ -1,0 +1,12 @@
+- import_playbook: stig1.yml
+- import_playbook: stig2.yml
+- import_playbook: stig3.yml
+
+- name: Run post STIG tasks
+  hosts: node
+  become: true
+  gather_facts: false
+  tasks:
+    - name: System reboot
+      ansible.builtin.reboot:
+        reboot_timeout: 30

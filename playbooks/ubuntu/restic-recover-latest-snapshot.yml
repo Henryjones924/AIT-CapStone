@@ -1,5 +1,5 @@
 - name: Recovery from latest snapshot
-  hosts: node01
+  hosts: node
   become: true
   vars_files:
     - ../../vault/secrets.yml
@@ -41,15 +41,3 @@
       service:
         name: docker
         state: started
-
-    - name: Start Compose Monitoring
-      community.docker.docker_compose_v2:
-        project_src: /opt/docker/compose/monitoring/
-        state: present
-      register: output
-
-    - name: Start Compose Services
-      community.docker.docker_compose_v2:
-        project_src: /opt/docker/compose/services/
-        state: present
-      register: output

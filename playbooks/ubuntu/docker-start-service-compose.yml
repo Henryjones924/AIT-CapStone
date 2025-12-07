@@ -1,5 +1,5 @@
 - name: Prepare and Start Service Containers
-  hosts: node01
+  hosts: node
   become: true
   vars_files:
     - ../../vault/secrets.yml

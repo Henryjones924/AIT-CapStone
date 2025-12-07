@@ -1,5 +1,5 @@
 - name: Install and Prepare Docker
-  hosts: node01
+  hosts: node
   become: true
   vars_files:
     - ../../vault/secrets.yml
@@ -33,6 +33,7 @@
         method: get
         dest: /etc/apt/keyrings/docker.asc
         mode: "0644"
+        status_code: [200, 304]
 
     - name: Add Docker repo
       ansible.builtin.copy:
