@@ -6,7 +6,11 @@
   hosts: node
   become: true
   gather_facts: false
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
   tasks:
     - name: System reboot
       ansible.builtin.reboot:
-        reboot_timeout: 30
+        reboot_timeout: 120

@@ -27,7 +27,7 @@
       community.docker.docker_network:
         name: net-grafana
 
-    - name: Create and start services
+    - name: Create and start monitoring
       community.docker.docker_compose_v2:
         project_src: /opt/docker/compose/monitoring/
       register: output

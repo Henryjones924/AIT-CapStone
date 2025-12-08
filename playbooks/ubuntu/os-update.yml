@@ -1,0 +1,21 @@
+- name: Update Ubuntu OS
+  hosts: node
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+  tasks:
+    - name: Ubuntu Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Ubuntu Upgrade all packages
+      apt:
+        upgrade: yes
+
+    - name: Reboot if required
+      reboot:
+        pre_reboot_delay: 240
+        post_reboot_delay: 120
+      when: reboot_required.stat.exists

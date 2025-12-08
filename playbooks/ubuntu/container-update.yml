@@ -1,0 +1,42 @@
+- name: Update Docker Containers
+  hosts: node
+  become: true
+  vars_files:
+    - ../../vault/secrets.yml
+  vars:
+    ansible_become_password: "{{ sudo_password }}"
+
+  tasks:
+    - name: Docker Compose Stop Monitoring
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/monitoring/
+      register: output
+
+    - name: Docker Compose Stop Services
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/services/
+      register: output
+
+    - name: Docker Compose Pull Monitoring
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/monitoring/
+        pull: always
+      register: output
+
+    - name: Docker Compose Pull Services
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/services/
+        pull: always
+      register: output
+
+    - name: Recreate and start containers Monitoring
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/monitoring/
+        state: present
+        recreate: always
+
+    - name: Recreate and start containers Service
+      community.docker.docker_compose_v2:
+        project_src: /opt/docker/compose/monitoring/
+        state: present
+        recreate: always

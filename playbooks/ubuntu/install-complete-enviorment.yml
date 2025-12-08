@@ -1,3 +1,5 @@
+#Update host kernel and packages
+- import_playbook: os-update.yml
 #Setup and start a compliance scan
 #- import_playbook: install-oscap.yml
 #Install docker
@@ -19,3 +21,5 @@
 #Redeploy compose files
 - import_playbook: docker-start-monitoring-compose.yml
 - import_playbook: docker-start-service-compose.yml
+#Update to latest images
+- import_playbook: container-update.yml
