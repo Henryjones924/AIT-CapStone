@@ -18,4 +18,3 @@
       reboot:
         pre_reboot_delay: 240
         post_reboot_delay: 120
-      when: reboot_required.stat.exists
